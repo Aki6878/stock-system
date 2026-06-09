@@ -1,43 +1,84 @@
 <!DOCTYPE html>
-<html lang="ja">
+<html lang="ja" class="notranslate">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>在庫管理スキャン</title>
+    <meta name="google" content="notranslate">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>QRコード 在庫管理システム</title>
     <script src="https://unpkg.com/html5-qrcode"></script>
     <style>
-        body { font-family: sans-serif; padding: 15px; background: #f5f5f5; }
-        .card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 15px; }
-        .input-field { width: 100%; padding: 10px; margin: 5px 0; border: 1px solid #ccc; box-sizing: border-box; }
-        .btn { display: block; width: 100%; padding: 12px; border: none; color: white; font-weight: bold; margin-bottom: 10px; cursor: pointer; }
+        body { font-family: sans-serif; margin: 0; padding: 15px; background: #f5f5f5; color: #333; }
+        .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        .btn { display: block; width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; text-align: center; cursor: pointer; text-decoration: none; margin-bottom: 10px; }
+        .btn-success { background: #28a745; }
+        .btn-danger { background: #dc3545; }
+        .btn-info { background: #17a2b8; }
+        #reader { width: 100%; max-width: 400px; margin: 0 auto; background: black; }
+        .data-display { font-size: 18px; margin: 5px 0 15px 0; padding: 10px; background: #e9ecef; border-radius: 4px; font-weight: bold; }
+        .input-field { width: 100%; padding: 10px; font-size: 16px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 10px; }
+        .label { font-weight: bold; color: #666; font-size: 14px; }
     </style>
 </head>
 <body>
-    <div class="card"><a href="/list" class="btn" style="background:#17a2b8; text-decoration:none; text-align:center;">📊 在庫一覧・履歴を見る</a></div>
-    <div class="card"><button class="btn" style="background:#007bff;" onclick="startScan()">📷 スキャン開始</button><div id="reader"></div></div>
+
     <div class="card">
-        <input type="text" id="p-name" class="input-field" placeholder="商品名">
-        <input type="text" id="p-maker" class="input-field" placeholder="メーカー">
-        <input type="number" id="qty" class="input-field" value="1">
-        <select id="staff" class="input-field"><option>Shohei</option><option>Sayuri</option></select>
-        <button class="btn" style="background:#28a745;" onclick="submit('in')">➕ 入庫</button>
-        <button class="btn" style="background:#dc3545;" onclick="submit('out')">➖ 出庫</button>
+        <a href="/list" class="btn btn-info">📊 在庫一覧・履歴を見る</a>
+        <button class="btn" id="start-btn" onclick="startScan()">📷 スキャン開始</button>
+        <div id="reader" style="display:none;"></div>
     </div>
+
+    <div class="card">
+        <div class="label">ラックNo. (棚番号)</div>
+        <div id="shelf-view" class="data-display">未読込</div>
+        
+        <div class="label">製品番号</div>
+        <div id="product-view" class="data-display">未読込</div>
+
+        <input type="text" id="product-name-input" class="input-field" placeholder="商品名">
+        <input type="text" id="maker-input" class="input-field" placeholder="メーカー">
+        <input type="number" id="quantity-input" value="1" min="1" class="input-field">
+        
+        <select id="staff-select" class="input-field">
+            <option value="Shohei">Shohei</option>
+            <option value="Sayuri">Sayuri</option>
+        </select>
+
+        <button class="btn btn-success" onclick="submitStock('in')">➕ 入庫</button>
+        <button class="btn btn-danger" onclick="submitStock('out')">➖ 出庫</button>
+    </div>
+
     <script>
-        let currentShelf = "", currentProd = "";
+        let currentShelf = "", currentProduct = "";
+
         function startScan() {
+            document.getElementById('reader').style.display = 'block';
             new Html5Qrcode("reader").start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
-                if (text.startsWith("LOC-")) currentShelf = text;
-                else currentProd = text;
-                alert("読み取り完了: " + text);
+                if (text.startsWith("LOC-")) {
+                    currentShelf = text;
+                    document.getElementById("shelf-view").innerText = text;
+                } else if (text.startsWith("PROD-")) {
+                    currentProduct = text;
+                    document.getElementById("product-view").innerText = text;
+                }
+                if (navigator.vibrate) navigator.vibrate(200);
             });
         }
-        function submit(type) {
-            fetch('/api/stock', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({
-                shelfId: currentShelf, productId: currentProd, productName: document.getElementById('p-name').value,
-                maker: document.getElementById('p-maker').value, staff: document.getElementById('staff').value,
-                quantity: parseInt(document.getElementById('qty').value), type: type
-            })}).then(() => alert("登録完了！"));
+
+        function submitStock(type) {
+            if (!currentShelf || !currentProduct) { alert("棚と製品をスキャンしてください！"); return; }
+            fetch('/api/stock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    shelfId: currentShelf,
+                    productId: currentProduct,
+                    productName: document.getElementById("product-name-input").value,
+                    maker: document.getElementById("maker-input").value,
+                    staff: document.getElementById("staff-select").value,
+                    quantity: parseInt(document.getElementById("quantity-input").value),
+                    type: (type === 'out') ? 'out' : 'in'
+                })
+            }).then(res => res.json()).then(data => alert("完了！ 現在の在庫: " + data.currentQuantity));
         }
     </script>
 </body>
