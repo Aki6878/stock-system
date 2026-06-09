@@ -17,9 +17,6 @@ app.post('/api/stock', (req, res) => {
     if (!item) {
         item = { shelfId, productName, productId, maker, quantity: 0 };
         stockDatabase.push(item);
-    } else {
-        item.productName = productName;
-        item.maker = maker;
     }
     
     if (type === 'in') item.quantity += quantity;
