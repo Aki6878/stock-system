@@ -4,30 +4,14 @@ const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-// 在庫データを保存する配列
 let stockDatabase = [];
-// 🕒 入出庫の履歴を保存する配列
 let historyDatabase = [];
 
-// 📦 現在の在庫一覧を取得するAPI
-app.get('/api/stock', (req, res) => {
-    res.json(stockDatabase);
-});
+app.get('/api/stock', (req, res) => res.json(stockDatabase));
+app.get('/api/history', (req, res) => res.json(historyDatabase));
 
-// 🕒 入出庫履歴を取得するAPI
-app.get('/api/history', (req, res) => {
-    res.json(historyDatabase);
-});
-
-// 📄 在庫一覧ページ（list.html）を表示
-app.get('/list', (req, res) => {
-    res.sendFile(path.join(__dirname, 'public', 'list.html'));
-});
-
-// ➕➖ 入出庫を処理するAPI
 app.post('/api/stock', (req, res) => {
     const { shelfId, productName, productId, maker, staff, quantity, type } = req.body;
-    
     let item = stockDatabase.find(i => i.shelfId === shelfId && i.productId === productId);
     
     if (!item) {
@@ -38,34 +22,23 @@ app.post('/api/stock', (req, res) => {
         item.maker = maker;
     }
     
-    if (type === 'in') {
-        item.quantity += quantity;
-    } else if (type === 'out') {
-        item.quantity -= quantity;
-        if (item.quantity < 0) item.quantity = 0;
-    }
-
-    // 履歴の保存
-    const now = new Date();
-    const jstDate = now.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
-
+    if (type === 'in') item.quantity += quantity;
+    else if (type === 'out') item.quantity = Math.max(0, item.quantity - quantity);
+    
     historyDatabase.unshift({
-        date: jstDate,
+        date: new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }),
+        staff,
         type: type === 'in' ? '入庫' : '出庫',
-        staff: staff, // 担当者を記録
         shelfId,
         productName,
         productId,
-        quantity
+        quantity,
+        remaining: item.quantity
     });
-
-    // 履歴は最新100件まで保持
-    if (historyDatabase.length > 100) {
-        historyDatabase.pop();
-    }
     
+    if (historyDatabase.length > 100) historyDatabase.pop();
     res.status(200).json({ success: true, currentQuantity: item.quantity });
 });
 
-const PORT = 3000;
-app.listen(PORT, () => console.log("Server running on port 3000"));
+app.get('/list', (req, res) => res.sendFile(path.join(__dirname, 'public', 'list.html')));
+app.listen(3000, () => console.log("Server running on port 3000"));
