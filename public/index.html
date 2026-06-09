@@ -29,7 +29,7 @@
 </head>
 <body>
 
-    <h1><img src="logo.gif" alt="ロゴ" style="height: 40px; vertical-align: middle; margin-right: 10px;">在庫管理スキャン</h1>
+    <h1>在庫管理スキャン</h1>
 
     <div class="card">
         <button class="btn" id="start-btn" onclick="startScan()">📷 QRスキャンを開始</button>
@@ -43,7 +43,7 @@
             <div id="shelf-view" class="data-display">未読込</div>
         </div>
         <div>
-            <span class="label">製品番号 (PROD-)</span>
+            <span class="label">製品番号 / バーコード中身</span>
             <div id="product-view" class="data-display">未読込</div>
         </div>
         
@@ -107,16 +107,16 @@
                 { facingMode: "environment" }, 
                 { fps: 10, qrbox: { width: 250, height: 250 } },
                 (decodedText) => {
+                    // もし「LOC-」から始まる場合は棚として認識
                     if (decodedText.startsWith("LOC-")) {
                         currentShelf = decodedText;
                         document.getElementById("shelf-view").innerText = decodedText;
                         vibrateDevice();
-                    } else if (decodedText.startsWith("PROD-")) {
+                    } else {
+                        // それ以外のQRコードはすべて製品番号として認識する（制限を解除）
                         currentProduct = decodedText;
                         document.getElementById("product-view").innerText = decodedText;
                         vibrateDevice();
-                    } else {
-                        alert("無効なQRコードです: " + decodedText);
                     }
                 },
                 (errorMessage) => { }
