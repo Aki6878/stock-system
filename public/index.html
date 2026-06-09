@@ -1,0 +1,194 @@
+<!DOCTYPE html>
+<html lang="ja" class="notranslate">
+<head>
+    <meta charset="UTF-8">
+    <meta name="google" content="notranslate">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>QRコード 在庫管理システム</title>
+    <script src="https://unpkg.com/html5-qrcode"></script>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 15px; background: #f5f5f5; color: #333; }
+        .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        h1, h2 { margin-top: 0; text-align: center; color: #007bff; }
+        .btn { display: block; width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; text-align: center; cursor: pointer; box-sizing: border-box; }
+        .btn-success { background: #28a745; }
+        .btn-danger { background: #dc3545; }
+        #reader { width: 100%; max-width: 400px; margin: 0 auto; background: black; }
+        .data-display { font-size: 18px; margin: 10px 0; padding: 8px; background: #e9ecef; border-radius: 4px; }
+        .input-field { width: 100%; padding: 10px; font-size: 16px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 10px; }
+        .flex { display: flex; gap: 10px; margin-top: 10px; }
+        .label { font-weight: bold; color: #666; font-size: 14px; }
+        
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 14px; }
+        th { background-color: #007bff; color: white; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .refresh-box { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .btn-sm { width: auto; padding: 6px 12px; font-size: 14px; }
+    </style>
+</head>
+<body>
+
+    <h1><img src="logo.gif" alt="ロゴ" style="height: 40px; vertical-align: middle; margin-right: 10px;">在庫管理スキャン</h1>
+
+    <div class="card">
+        <button class="btn" id="start-btn" onclick="startScan()">📷 QRスキャンを開始</button>
+        <div id="reader" style="display:none; margin-top:10px;"></div>
+    </div>
+
+    <div class="card">
+        <h2>スキャン結果・手入力</h2>
+        <div>
+            <span class="label">現在の選択された棚 (LOC-)</span>
+            <div id="shelf-view" class="data-display">未読込</div>
+        </div>
+        <div>
+            <span class="label">製品番号 (PROD-)</span>
+            <div id="product-view" class="data-display">未読込</div>
+        </div>
+        
+        <div>
+            <span class="label">商品名</span>
+            <input type="text" id="product-name-input" class="input-field" placeholder="例: チャガ石鹸">
+        </div>
+        <div>
+            <span class="label">メーカー</span>
+            <input type="text" id="maker-input" class="input-field" placeholder="例: 〇〇株式会社">
+        </div>
+        <div>
+            <span class="label">数量</span>
+            <input type="number" id="quantity-input" value="1" min="1" class="input-field">
+        </div>
+
+        <div class="flex">
+            <button class="btn btn-success" onclick="submitStock('in')">➕ 入庫する</button>
+            <button class="btn btn-danger" onclick="submitStock('shukko')">➖ 出庫する</button>
+        </div>
+    </div>
+
+    <div class="card">
+        <div class="refresh-box">
+            <h2>📊 現在の在庫一覧</h2>
+            <button class="btn btn-sm" onclick="loadStockList()">🔄 更新</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>棚番号</th>
+                    <th>商品名</th>
+                    <th>製品番号</th>
+                    <th>メーカー</th>
+                    <th>個数</th>
+                </tr>
+            </thead>
+            <tbody id="stock-table-body">
+                <tr>
+                    <td colspan="5" style="text-align: center; color: #999;">データがありません</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        let html5QrcodeScanner = null;
+        let currentShelf = "";
+        let currentProduct = "";
+
+        window.onload = function() {
+            loadStockList();
+        };
+
+        function startScan() {
+            document.getElementById('reader').style.display = 'block';
+            document.getElementById('start-btn').style.display = 'none';
+            
+            html5QrcodeScanner = new Html5Qrcode("reader");
+            html5QrcodeScanner.start(
+                { facingMode: "environment" }, 
+                { fps: 10, qrbox: { width: 250, height: 250 } },
+                (decodedText) => {
+                    if (decodedText.startsWith("LOC-")) {
+                        currentShelf = decodedText;
+                        document.getElementById("shelf-view").innerText = decodedText;
+                        vibrateDevice();
+                    } else if (decodedText.startsWith("PROD-")) {
+                        currentProduct = decodedText;
+                        document.getElementById("product-view").innerText = decodedText;
+                        vibrateDevice();
+                    } else {
+                        alert("無効なQRコードです: " + decodedText);
+                    }
+                },
+                (errorMessage) => { }
+            ).catch(err => {
+                alert("カメラの起動に失敗しました: " + err);
+            });
+        }
+
+        function vibrateDevice() {
+            if (navigator.vibrate) navigator.vibrate(200);
+        }
+
+        function submitStock(type) {
+            if (!currentShelf || !currentProduct) {
+                alert("棚と製品番号のQRコードを先にスキャンしてください！");
+                return;
+            }
+            const pName = document.getElementById("product-name-input").value.trim() || "未設定";
+            const pMaker = document.getElementById("maker-input").value.trim() || "未設定";
+            const qty = parseInt(document.getElementById("quantity-input").value);
+            const serverType = (type === 'shukko') ? 'out' : 'in';
+
+            fetch('/api/stock', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    shelfId: currentShelf,
+                    productName: pName,
+                    productId: currentProduct,
+                    maker: pMaker,
+                    quantity: qty,
+                    type: serverType
+                })
+            })
+            .then(res => res.json())
+            .then(data => {
+                if (data.success) {
+                    alert((type === 'in' ? '入庫' : '出庫') + "完了！ 現在の在庫数: " + data.currentQuantity);
+                    loadStockList();
+                } else {
+                    alert("エラーが発生しました。");
+                }
+            })
+            .catch(err => alert("通信エラー: " + err));
+        }
+
+        function loadStockList() {
+            fetch('/api/stock')
+            .then(res => res.json())
+            .then(data => {
+                const tbody = document.getElementById("stock-table-body");
+                tbody.innerHTML = "";
+
+                if (data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #999;">データがありません</td></tr>`;
+                    return;
+                }
+
+                data.forEach(item => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td>${item.shelfId}</td>
+                        <td>${item.productName}</td>
+                        <td>${item.productId}</td>
+                        <td>${item.maker}</td>
+                        <td style="font-weight: bold; color: ${item.quantity > 0 ? '#28a745' : '#dc3545'};">${item.quantity}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            })
+            .catch(err => console.error("データ取得エラー:", err));
+        }
+    </script>
+</body>
+</html>
