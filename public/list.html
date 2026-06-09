@@ -1,0 +1,138 @@
+<!DOCTYPE html>
+<html lang="ja" class="notranslate">
+<head>
+    <meta charset="UTF-8">
+    <meta name="google" content="notranslate">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>在庫データ一覧</title>
+    <style>
+        body { font-family: sans-serif; margin: 0; padding: 15px; background: #f5f5f5; color: #333; }
+        .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        h1, h2 { margin-top: 0; text-align: center; color: #007bff; }
+        .btn { display: block; width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; text-align: center; cursor: pointer; box-sizing: border-box; text-decoration: none; }
+        .btn-secondary { background: #6c757d; margin-bottom: 15px; }
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
+        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 14px; }
+        th { background-color: #007bff; color: white; }
+        tr:nth-child(even) { background-color: #f9f9f9; }
+        .refresh-box { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
+        .btn-sm { width: auto; padding: 6px 12px; font-size: 14px; }
+        
+        .badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; color: white; }
+        .badge-in { background-color: #28a745; }
+        .badge-out { background-color: #dc3545; }
+    </style>
+</head>
+<body>
+
+    <a href="/" class="btn btn-secondary">⬅ スキャン画面（ホーム）に戻る</a>
+
+    <div class="card">
+        <div class="refresh-box">
+            <h2>📊 現在の在庫一覧</h2>
+            <button class="btn btn-sm" onclick="loadStockList()">🔄 更新</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>棚番号</th>
+                    <th>商品名</th>
+                    <th>製品番号</th>
+                    <th>メーカー</th>
+                    <th>個数</th>
+                </tr>
+            </thead>
+            <tbody id="stock-table-body">
+                <tr>
+                    <td colspan="5" style="text-align: center; color: #999;">データがありません</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <div class="card">
+        <div class="refresh-box">
+            <h2>🕒 最近の入出庫履歴 (最新順)</h2>
+            <button class="btn btn-sm" onclick="loadHistoryList()">🔄 更新</button>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>日時</th>
+                    <th>区分</th>
+                    <th>棚番号</th>
+                    <th>商品名</th>
+                    <th>製品番号</th>
+                    <th>数量</th>
+                </tr>
+            </thead>
+            <tbody id="history-table-body">
+                <tr>
+                    <td colspan="6" style="text-align: center; color: #999;">履歴はありません</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
+    <script>
+        window.onload = function() {
+            loadStockList();
+            loadHistoryList();
+        };
+
+        function loadStockList() {
+            fetch('/api/stock')
+            .then(res => res.json())
+            .then(data => {
+                const tbody = document.getElementById("stock-table-body");
+                tbody.innerHTML = "";
+                if (data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #999;">データがありません</td></tr>`;
+                    return;
+                }
+                data.forEach(item => {
+                    const tr = document.createElement("tr");
+                    tr.innerHTML = `
+                        <td>${item.shelfId}</td>
+                        <td>${item.productName}</td>
+                        <td>${item.productId}</td>
+                        <td>${item.maker}</td>
+                        <td style="font-weight: bold; color: ${item.quantity > 0 ? '#28a745' : '#dc3545'};">${item.quantity}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            })
+            .catch(err => console.error("データ取得エラー:", err));
+        }
+
+        function loadHistoryList() {
+            fetch('/api/history')
+            .then(res => res.json())
+            .then(data => {
+                const tbody = document.getElementById("history-table-body");
+                tbody.innerHTML = "";
+
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #999;">履歴はありません</td></tr>`;
+                    return;
+                }
+
+                data.forEach(item => {
+                    const tr = document.createElement("tr");
+                    const badgeClass = item.type === '入庫' ? 'badge badge-in' : 'badge badge-out';
+                    tr.innerHTML = `
+                        <td style="font-size: 12px; color: #555;">${item.date}</td>
+                        <td><span class="${badgeClass}">${item.type}</span></td>
+                        <td>${item.shelfId}</td>
+                        <td>${item.productName}</td>
+                        <td>${item.productId}</td>
+                        <td style="font-weight: bold;">${item.quantity}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            })
+            .catch(err => console.error("履歴取得エラー:", err));
+        }
+    </script>
+</body>
+</html>
