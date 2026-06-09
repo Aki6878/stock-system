@@ -37,7 +37,7 @@
     </div>
 
     <div class="card">
-        <h2>スキャン結果・手入力</h2>
+        <h2>スキャン結果・確認</h2>
         <div>
             <span class="label">現在の選択された棚 (LOC-)</span>
             <div id="shelf-view" class="data-display">未読込</div>
@@ -49,11 +49,11 @@
         
         <div>
             <span class="label">商品名</span>
-            <input type="text" id="product-name-input" class="input-field" placeholder="例: チャガ石鹸">
+            <input type="text" id="product-name-input" class="input-field" placeholder="QRから自動入力されます">
         </div>
         <div>
             <span class="label">メーカー</span>
-            <input type="text" id="maker-input" class="input-field" placeholder="例: 〇〇株式会社">
+            <input type="text" id="maker-input" class="input-field" placeholder="QRから自動入力されます">
         </div>
         <div>
             <span class="label">数量</span>
@@ -113,9 +113,26 @@
                         document.getElementById("shelf-view").innerText = decodedText;
                         vibrateDevice();
                     } else {
-                        // それ以外のQRコードはすべて製品番号として認識する（制限を解除）
-                        currentProduct = decodedText;
-                        document.getElementById("product-view").innerText = decodedText;
+                        // 改行でデータをバラバラに分解する処理
+                        // WindowsやMacなど色々な改行コードに対応
+                        const lines = decodedText.split(/\r?\n/);
+                        
+                        if (lines.length >= 3) {
+                            // 3行以上データがある場合、自動で振り分ける
+                            currentProduct = lines[0].trim(); // 1行目：製品番号
+                            const productName = lines[1].trim(); // 2行目：商品名
+                            const makerName = lines[2].trim(); // 3行目：メーカー
+                            
+                            document.getElementById("product-view").innerText = currentProduct;
+                            document.getElementById("product-name-input").value = productName;
+                            document.getElementById("maker-input").value = makerName;
+                        } else {
+                            // もし1行しかない通常のQRコードだった場合のバックアップ
+                            currentProduct = decodedText.trim();
+                            document.getElementById("product-view").innerText = currentProduct;
+                            document.getElementById("product-name-input").value = "未設定";
+                            document.getElementById("maker-input").value = "未設定";
+                        }
                         vibrateDevice();
                     }
                 },
@@ -171,7 +188,7 @@
                 tbody.innerHTML = "";
 
                 if (data.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #999;">データがありません</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan=\"5\" style=\"text-align: center; color: #999;\">データがありません</td></tr>`;
                     return;
                 }
 
