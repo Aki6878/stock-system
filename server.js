@@ -1,11 +1,12 @@
 const express = require('express');
+const path = require('path'); // 追加：ファイルを返すための仕組み
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
 // 在庫データを保存する配列
 let stockDatabase = [];
-// 🕒 入出庫の履歴を保存する配列（新設）
+// 🕒 入出庫の履歴を保存する配列
 let historyDatabase = [];
 
 // 📦 現在の在庫一覧を取得するAPI
@@ -13,16 +14,20 @@ app.get('/api/stock', (req, res) => {
     res.json(stockDatabase);
 });
 
-// 🕒 入出庫履歴を取得するAPI（新設）
+// 🕒 入出庫履歴を取得するAPI
 app.get('/api/history', (req, res) => {
     res.json(historyDatabase);
+});
+
+// 📄 新設：在庫一覧ページ（list.html）を表示するための設定
+app.get('/list', (req, res) => {
+    res.sendFile(path.join(__dirname, 'public', 'list.html'));
 });
 
 // ➕➖ 入出庫を処理するAPI
 app.post('/api/stock', (req, res) => {
     const { shelfId, productName, productId, maker, quantity, type } = req.body;
     
-    // 在庫データの更新処理
     let item = stockDatabase.find(i => i.shelfId === shelfId && i.productId === productId);
     
     if (!item) {
@@ -40,11 +45,9 @@ app.post('/api/stock', (req, res) => {
         if (item.quantity < 0) item.quantity = 0;
     }
 
-    // 🕒 日本時間の日時を作成
     const now = new Date();
     const jstDate = now.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
 
-    // 履歴データに新しく追加（配列の先頭に追加して最新順にする）
     historyDatabase.unshift({
         date: jstDate,
         type: type === 'in' ? '入庫' : '出庫',
@@ -54,7 +57,6 @@ app.post('/api/stock', (req, res) => {
         quantity
     });
 
-    // 履歴がたまりすぎないように直近100件までに制限
     if (historyDatabase.length > 100) {
         historyDatabase.pop();
     }
