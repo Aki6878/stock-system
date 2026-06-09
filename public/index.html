@@ -9,6 +9,7 @@
     <style>
         body { font-family: sans-serif; margin: 0; padding: 15px; background: #f5f5f5; color: #333; }
         .card { background: white; padding: 15px; border-radius: 8px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); margin-bottom: 15px; }
+        h1, h2 { margin-top: 0; text-align: center; color: #007bff; }
         .btn { display: block; width: 100%; padding: 12px; background: #007bff; color: white; border: none; border-radius: 5px; font-size: 16px; font-weight: bold; text-align: center; cursor: pointer; text-decoration: none; margin-bottom: 10px; }
         .btn-success { background: #28a745; }
         .btn-danger { background: #dc3545; }
@@ -52,16 +53,31 @@
 
         function startScan() {
             document.getElementById('reader').style.display = 'block';
-            new Html5Qrcode("reader").start({ facingMode: "environment" }, { fps: 10, qrbox: 250 }, (text) => {
-                if (text.startsWith("LOC-")) {
-                    currentShelf = text;
-                    document.getElementById("shelf-view").innerText = text;
-                } else if (text.startsWith("PROD-")) {
-                    currentProduct = text;
-                    document.getElementById("product-view").innerText = text;
+            document.getElementById('start-btn').style.display = 'none';
+            
+            new Html5Qrcode("reader").start(
+                { facingMode: "environment" }, 
+                { fps: 10, qrbox: 250 }, 
+                (text) => {
+                    if (text.startsWith("LOC-")) {
+                        currentShelf = text;
+                        document.getElementById("shelf-view").innerText = text;
+                    } else {
+                        // QRの中身が改行で区切られている場合の解析
+                        const lines = text.split(/\r?\n/);
+                        if (lines.length >= 3) {
+                            currentProduct = lines[0].trim();
+                            document.getElementById("product-view").innerText = currentProduct;
+                            document.getElementById("product-name-input").value = lines[1].trim();
+                            document.getElementById("maker-input").value = lines[2].trim();
+                        } else {
+                            currentProduct = text.trim();
+                            document.getElementById("product-view").innerText = currentProduct;
+                        }
+                    }
+                    if (navigator.vibrate) navigator.vibrate(200);
                 }
-                if (navigator.vibrate) navigator.vibrate(200);
-            });
+            ).catch(err => alert("カメラ起動エラー: " + err));
         }
 
         function submitStock(type) {
