@@ -25,6 +25,11 @@
         tr:nth-child(even) { background-color: #f9f9f9; }
         .refresh-box { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
         .btn-sm { width: auto; padding: 6px 12px; font-size: 14px; }
+        
+        /* 履歴用の色分け設定 */
+        .badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; color: white; }
+        .badge-in { background-color: #28a745; }
+        .badge-out { background-color: #dc3545; }
     </style>
 </head>
 <body>
@@ -89,6 +94,29 @@
         </table>
     </div>
 
+    <div class="card">
+        <div class="refresh-box">
+            <h2>🕒 最近の入出庫履歴 (最新順)</h2>
+        </div>
+        <table>
+            <thead>
+                <tr>
+                    <th>日時</th>
+                    <th>区分</th>
+                    <th>棚番号</th>
+                    <th>商品名</th>
+                    <th>製品番号</th>
+                    <th>数量</th>
+                </tr>
+            </thead>
+            <tbody id="history-table-body">
+                <tr>
+                    <td colspan="6" style="text-align: center; color: #999;">履歴はありません</td>
+                </tr>
+            </tbody>
+        </table>
+    </div>
+
     <script>
         let html5QrcodeScanner = null;
         let currentShelf = "";
@@ -96,6 +124,7 @@
 
         window.onload = function() {
             loadStockList();
+            loadHistoryList(); // 履歴も同時に読み込む
         };
 
         function startScan() {
@@ -107,27 +136,21 @@
                 { facingMode: "environment" }, 
                 { fps: 10, qrbox: { width: 250, height: 250 } },
                 (decodedText) => {
-                    // もし「LOC-」から始まる場合は棚として認識
                     if (decodedText.startsWith("LOC-")) {
                         currentShelf = decodedText;
                         document.getElementById("shelf-view").innerText = decodedText;
                         vibrateDevice();
                     } else {
-                        // 改行でデータをバラバラに分解する処理
-                        // WindowsやMacなど色々な改行コードに対応
                         const lines = decodedText.split(/\r?\n/);
-                        
                         if (lines.length >= 3) {
-                            // 3行以上データがある場合、自動で振り分ける
-                            currentProduct = lines[0].trim(); // 1行目：製品番号
-                            const productName = lines[1].trim(); // 2行目：商品名
-                            const makerName = lines[2].trim(); // 3行目：メーカー
+                            currentProduct = lines[0].trim();
+                            const productName = lines[1].trim();
+                            const makerName = lines[2].trim();
                             
                             document.getElementById("product-view").innerText = currentProduct;
                             document.getElementById("product-name-input").value = productName;
                             document.getElementById("maker-input").value = makerName;
                         } else {
-                            // もし1行しかない通常のQRコードだった場合のバックアップ
                             currentProduct = decodedText.trim();
                             document.getElementById("product-view").innerText = currentProduct;
                             document.getElementById("product-name-input").value = "未設定";
@@ -171,8 +194,9 @@
             .then(res => res.json())
             .then(data => {
                 if (data.success) {
-                    alert((type === 'in' ? '入庫' : '出庫') + "完了！ 現在の在庫数: " + data.currentQuantity);
+                    alert((type === 'in' ? '入庫' : '出庫') + "完了！");
                     loadStockList();
+                    loadHistoryList(); // 入出庫が成功したら履歴も更新
                 } else {
                     alert("エラーが発生しました。");
                 }
@@ -186,12 +210,10 @@
             .then(data => {
                 const tbody = document.getElementById("stock-table-body");
                 tbody.innerHTML = "";
-
                 if (data.length === 0) {
-                    tbody.innerHTML = `<tr><td colspan=\"5\" style=\"text-align: center; color: #999;\">データがありません</td></tr>`;
+                    tbody.innerHTML = `<tr><td colspan="5" style="text-align: center; color: #999;">データがありません</td></tr>`;
                     return;
                 }
-
                 data.forEach(item => {
                     const tr = document.createElement("tr");
                     tr.innerHTML = `
@@ -205,6 +227,36 @@
                 });
             })
             .catch(err => console.error("データ取得エラー:", err));
+        }
+
+        // 🕒 履歴データをサーバーから引っ張ってきて画面に表示する関数（新設）
+        function loadHistoryList() {
+            fetch('/api/history')
+            .then(res => res.json())
+            .then(data => {
+                const tbody = document.getElementById("history-table-body");
+                tbody.innerHTML = "";
+
+                if (!data || data.length === 0) {
+                    tbody.innerHTML = `<tr><td colspan="6" style="text-align: center; color: #999;">履歴はありません</td></tr>`;
+                    return;
+                }
+
+                data.forEach(item => {
+                    const tr = document.createElement("tr");
+                    const badgeClass = item.type === '入庫' ? 'badge badge-in' : 'badge badge-out';
+                    tr.innerHTML = `
+                        <td style="font-size: 12px; color: #555;">${item.date}</td>
+                        <td><span class="${badgeClass}">${item.type}</span></td>
+                        <td>${item.shelfId}</td>
+                        <td>${item.productName}</td>
+                        <td>${item.productId}</td>
+                        <td style="font-weight: bold;">${item.quantity}</td>
+                    `;
+                    tbody.appendChild(tr);
+                });
+            })
+            .catch(err => console.error("履歴取得エラー:", err));
         }
     </script>
 </body>
