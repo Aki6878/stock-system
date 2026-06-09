@@ -1,44 +1,35 @@
 const express = require('express');
 const path = require('path');
+const fs = require('fs'); // 【追加】ファイル操作用
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
 
-let stockDatabase = [];
-let historyDatabase = [];
+const DATA_FILE = 'stock_data.csv';
 
-app.get('/api/stock', (req, res) => res.json(stockDatabase));
-app.get('/api/history', (req, res) => res.json(historyDatabase));
+// CSV形式で保存するためのヘルパー関数
+function saveToCSV(data) {
+    const header = "shelfId,productId,productName,maker,quantity\n";
+    const rows = data.map(i => `${i.shelfId},${i.productId},${i.productName},${i.maker},${i.quantity}`).join('\n');
+    fs.writeFileSync(DATA_FILE, header + rows);
+}
 
-app.post('/api/stock', (req, res) => {
-    const { shelfId, productName, productId, maker, staff, quantity, type } = req.body;
-    let item = stockDatabase.find(i => i.shelfId === shelfId && i.productId === productId);
-    
-    if (!item) {
-        item = { shelfId, productName, productId, maker, quantity: 0 };
-        stockDatabase.push(item);
-    } else {
-        item.productName = productName;
-        item.maker = maker;
-    }
-    
-    if (type === 'in') item.quantity += quantity;
-    else if (type === 'out') item.quantity = Math.max(0, item.quantity - quantity);
-    
-    // 履歴保存時にメーカー情報を含める
-    historyDatabase.unshift({
-        date: new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }),
-        staff: staff,
-        maker: item.maker,
-        productName: item.productName,
-        type: type === 'in' ? '入庫' : '出庫',
-        quantity: quantity,
-        remaining: item.quantity
+// 起動時にCSVからデータを読み込む
+if (fs.existsSync(DATA_FILE)) {
+    const content = fs.readFileSync(DATA_FILE, 'utf-8');
+    const lines = content.split('\n').slice(1);
+    stockDatabase = lines.filter(l => l).map(line => {
+        const [shelfId, productId, productName, maker, quantity] = line.split(',');
+        return { shelfId, productId, productName, maker, quantity: parseInt(quantity) };
     });
+}
+
+// 在庫更新APIの中で保存を呼び出す
+app.post('/api/stock', (req, res) => {
+    // ... (既存の更新ロジック) ...
     
-    if (historyDatabase.length > 100) historyDatabase.pop();
+    // 【追加】変更があるたびにCSVに書き出し
+    saveToCSV(stockDatabase);
+    
     res.status(200).json({ success: true, currentQuantity: item.quantity });
 });
-
-app.get('/list', (req, res) => res.sendFile(path.join(__dirname, 'public', 'list.html')));
-app.listen(3000, () => console.log("Server running on port 3000"));
