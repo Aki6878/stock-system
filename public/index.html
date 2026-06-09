@@ -19,16 +19,6 @@
         .input-field { width: 100%; padding: 10px; font-size: 16px; box-sizing: border-box; border: 1px solid #ccc; border-radius: 4px; margin-bottom: 10px; }
         .flex { display: flex; gap: 10px; margin-top: 10px; }
         .label { font-weight: bold; color: #666; font-size: 14px; }
-        
-        table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-        th, td { border: 1px solid #ddd; padding: 10px; text-align: left; font-size: 14px; }
-        th { background-color: #007bff; color: white; }
-        tr:nth-child(even) { background-color: #f9f9f9; }
-        .refresh-box { display: flex; justify-content: space-between; align-items: center; margin-bottom: 10px; }
-        
-        .badge { padding: 4px 8px; border-radius: 4px; font-weight: bold; font-size: 12px; color: white; }
-        .badge-in { background-color: #28a745; }
-        .badge-out { background-color: #dc3545; }
     </style>
 </head>
 <body>
@@ -67,6 +57,13 @@
             <span class="label">数量</span>
             <input type="number" id="quantity-input" value="1" min="1" class="input-field">
         </div>
+        <div>
+            <span class="label">担当者</span>
+            <select id="staff-select" class="input-field">
+                <option value="Shohei">Shohei</option>
+                <option value="Sayuri">Sayuri</option>
+            </select>
+        </div>
 
         <div class="flex">
             <button class="btn btn-success" onclick="submitStock('in')">➕ 入庫する</button>
@@ -96,67 +93,40 @@
                         const lines = decodedText.split(/\r?\n/);
                         if (lines.length >= 3) {
                             currentProduct = lines[0].trim();
-                            const productName = lines[1].trim();
-                            const makerName = lines[2].trim();
-                            
-                            document.getElementById("product-view").innerText = currentProduct;
-                            document.getElementById("product-name-input").value = productName;
-                            document.getElementById("maker-input").value = makerName;
+                            document.getElementById("product-name-input").value = lines[1].trim();
+                            document.getElementById("maker-input").value = lines[2].trim();
                         } else {
                             currentProduct = decodedText.trim();
-                            document.getElementById("product-view").innerText = currentProduct;
-                            document.getElementById("product-name-input").value = "未設定";
-                            document.getElementById("maker-input").value = "未設定";
                         }
+                        document.getElementById("product-view").innerText = currentProduct;
                         vibrateDevice();
                     }
                 },
                 (errorMessage) => { }
-            ).catch(err => {
-                alert("カメラの起動に失敗しました: " + err);
-            });
+            ).catch(err => { alert("カメラ起動エラー: " + err); });
         }
 
-        function vibrateDevice() {
-            if (navigator.vibrate) navigator.vibrate(200);
-        }
+        function vibrateDevice() { if (navigator.vibrate) navigator.vibrate(200); }
 
         function submitStock(type) {
-            if (!currentShelf || !currentProduct) {
-                alert("棚と製品番号のQRコードを先にスキャンしてください！");
-                return;
-            }
-            const pName = document.getElementById("product-name-input").value.trim() || "未設定";
-            const pMaker = document.getElementById("maker-input").value.trim() || "未設定";
-            const qty = parseInt(document.getElementById("quantity-input").value);
-            const serverType = (type === 'shukko') ? 'out' : 'in';
-
+            if (!currentShelf || !currentProduct) { alert("棚と製品をスキャンしてください！"); return; }
+            const staff = document.getElementById("staff-select").value;
             fetch('/api/stock', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     shelfId: currentShelf,
-                    productName: pName,
+                    productName: document.getElementById("product-name-input").value,
                     productId: currentProduct,
-                    maker: pMaker,
-                    quantity: qty,
-                    type: serverType
+                    maker: document.getElementById("maker-input").value,
+                    staff: staff,
+                    quantity: parseInt(document.getElementById("quantity-input").value),
+                    type: (type === 'shukko') ? 'out' : 'in'
                 })
             })
             .then(res => res.json())
-            .then(data => {
-                if (data.success) {
-                    alert((type === 'in' ? '入庫' : '出庫') + "完了！");
-                    // フォームをリセット
-                    document.getElementById("product-view").innerText = "未読込";
-                    document.getElementById("product-name-input").value = "";
-                    document.getElementById("maker-input").value = "";
-                    currentProduct = "";
-                } else {
-                    alert("エラーが発生しました。");
-                }
-            })
-            .catch(err => alert("通信エラー: " + err));
+            .then(data => { alert("完了！"); })
+            .catch(err => alert("通信エラー"));
         }
     </script>
 </body>
