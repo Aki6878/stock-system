@@ -25,13 +25,13 @@ app.post('/api/stock', (req, res) => {
     if (type === 'in') item.quantity += quantity;
     else if (type === 'out') item.quantity = Math.max(0, item.quantity - quantity);
     
+    // 履歴保存時にmakerも含める
     historyDatabase.unshift({
         date: new Date().toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' }),
         staff,
+        maker: item.maker,
+        productName: item.productName,
         type: type === 'in' ? '入庫' : '出庫',
-        shelfId,
-        productName,
-        productId,
         quantity,
         remaining: item.quantity
     });
