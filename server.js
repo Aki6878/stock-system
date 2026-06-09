@@ -1,5 +1,5 @@
 const express = require('express');
-const path = require('path'); // 追加：ファイルを返すための仕組み
+const path = require('path');
 const app = express();
 app.use(express.json());
 app.use(express.static('public'));
@@ -19,14 +19,14 @@ app.get('/api/history', (req, res) => {
     res.json(historyDatabase);
 });
 
-// 📄 新設：在庫一覧ページ（list.html）を表示するための設定
+// 📄 在庫一覧ページ（list.html）を表示
 app.get('/list', (req, res) => {
     res.sendFile(path.join(__dirname, 'public', 'list.html'));
 });
 
 // ➕➖ 入出庫を処理するAPI
 app.post('/api/stock', (req, res) => {
-    const { shelfId, productName, productId, maker, quantity, type } = req.body;
+    const { shelfId, productName, productId, maker, staff, quantity, type } = req.body;
     
     let item = stockDatabase.find(i => i.shelfId === shelfId && i.productId === productId);
     
@@ -45,18 +45,21 @@ app.post('/api/stock', (req, res) => {
         if (item.quantity < 0) item.quantity = 0;
     }
 
+    // 履歴の保存
     const now = new Date();
     const jstDate = now.toLocaleString('ja-JP', { timeZone: 'Asia/Tokyo' });
 
     historyDatabase.unshift({
         date: jstDate,
         type: type === 'in' ? '入庫' : '出庫',
+        staff: staff, // 担当者を記録
         shelfId,
         productName,
         productId,
         quantity
     });
 
+    // 履歴は最新100件まで保持
     if (historyDatabase.length > 100) {
         historyDatabase.pop();
     }
