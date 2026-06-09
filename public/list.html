@@ -7,54 +7,79 @@
         body { font-family: sans-serif; padding: 15px; background: #f5f5f5; }
         .card { background: white; padding: 15px; border-radius: 8px; margin-bottom: 20px; box-shadow: 0 1px 3px rgba(0,0,0,0.1); }
         
-        /* テーブルの幅を固定し、各列のレイアウトを整える */
+        /* テーブルの幅を100%に固定し、列の幅も固定する */
         table { width: 100%; border-collapse: collapse; margin-top: 10px; table-layout: fixed; }
-        th { background: #007bff; color: white; padding: 10px; font-size: 13px; text-align: center; }
-        td { border: 1px solid #ddd; padding: 8px; font-size: 13px; text-align: center; overflow: hidden; }
         
-        /* 数字部分の装飾（ここが長くなりすぎないように制御） */
-        .quantity-cell { font-weight: bold; color: #28a745; }
+        th { background: #007bff; color: white; padding: 10px; font-size: 13px; text-align: center; word-wrap: break-word; }
+        td { border: 1px solid #ddd; padding: 8px; font-size: 13px; text-align: center; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+        
+        /* 特定のカラム幅の調整 */
+        .col-short { width: 80px; }
     </style>
 </head>
 <body>
     <a href="/">⬅ スキャン画面に戻る</a>
+    
     <div class="card">
         <h2>📊 現在の在庫一覧</h2>
         <table>
             <thead>
                 <tr>
-                    <th style="width: 20%;">棚</th>
-                    <th style="width: 30%;">メーカー</th>
-                    <th style="width: 30%;">商品名</th>
-                    <th style="width: 20%;">在庫数</th>
+                    <th>棚</th>
+                    <th>メーカー</th>
+                    <th>商品名</th>
+                    <th class="col-short">在庫数</th>
                 </tr>
             </thead>
             <tbody id="stock-body"></tbody>
         </table>
     </div>
+
     <div class="card">
         <h2>🕒 最近の入出庫履歴</h2>
         <table>
             <thead>
                 <tr>
-                    <th>日時</th><th>担当者</th><th>メーカー</th><th>商品名</th><th>区分</th><th>数量</th><th>在庫数</th>
+                    <th>日時</th>
+                    <th>担当者</th>
+                    <th>メーカー</th>
+                    <th>商品名</th>
+                    <th>区分</th>
+                    <th class="col-short">数量</th>
+                    <th class="col-short">在庫数</th>
                 </tr>
             </thead>
             <tbody id="hist-body"></tbody>
         </table>
     </div>
+
     <script>
+        // 在庫一覧の表示
         fetch('/api/stock').then(r=>r.json()).then(d => {
             document.getElementById('stock-body').innerHTML = d.map(i => `
                 <tr>
                     <td>${i.shelfId}</td>
                     <td>${i.maker}</td>
                     <td>${i.productName}</td>
-                    <td class="quantity-cell">${i.quantity}</td>
+                    <td>${i.quantity}</td>
                 </tr>
             `).join('');
         });
-        // 履歴のfetch処理は以前のまま
+
+        // 履歴の表示
+        fetch('/api/history').then(r=>r.json()).then(d => {
+            document.getElementById('hist-body').innerHTML = d.map(i => `
+                <tr>
+                    <td>${i.date.split(' ')[1]}</td>
+                    <td>${i.staff}</td>
+                    <td>${i.maker || ''}</td>
+                    <td>${i.productName}</td>
+                    <td>${i.type}</td>
+                    <td>${i.quantity}</td>
+                    <td>${i.remaining}</td>
+                </tr>
+            `).join('');
+        });
     </script>
 </body>
 </html>
